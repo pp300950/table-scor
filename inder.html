@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>คะแนนสอบ</title>
+  <style>
+    td input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: center;
+    }
+    
+    th {
+      background-color: #4CAF50;
+      color: white;
+    }
+    
+    .editable input {
+      background-color: white;
+    }
+    
+    .centered {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    /* CSS แสดงผลในแท็บเล็ต */
+    @media (max-width: 768px) {
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 4px;
+      }
+    }
+
+    /* CSS แสดงผลในจอคอมพิวเตอร์ */
+    @media (min-width: 769px) {
+      table {
+        font-size: 16px;
+      }
+
+      th, td {
+        padding: 8px;
+      }
+    }
+    
+    td:first-child {
+      width: 0;
+      white-space: nowrap;
+    }
+    
+    td:first-child input {
+      width: auto;
+    }
+  </style>
+  <script>
+    var isEditing = false;
+    //ฟังก์ชันนี้ใช้สร้างตารางโดยอิงจากค่าที่รับเข้ามาจาก input element ที่มี id เป็น "numSubjects" ซึ่งจะเป็นจำนวนของวิชาที่ต้องการสร้างตาราง 
+    //และจะมีการสร้าง element input
+    //ในแต่ละแถวของตาราง เพื่อรับข้อมูล
+    //เกี่ยวกับวิชาและคะแนนที่ต้องการใส่
+    function generateTable() {
+      var numSubjects = parseInt(document.getElementById("numSubjects").value);
+      var tableBody = document.getElementById("tableBody");
+      tableBody.innerHTML = "";
+      
+      for (var i = 1; i <= numSubjects; i++) {
+        var row = document.createElement("tr");
+        
+        var subjectCell = document.createElement("td");
+        var subjectInput = document.createElement("input");
+        subjectInput.type = "text";//ลักษณะข้อมูล
+        subjectInput.name = "subject" + i;//วิชา
+        subjectInput.disabled = true;//ปุ่มเเก้ไขสถานะอนุญาต
+        subjectCell.appendChild(subjectInput);
+        row.appendChild(subjectCell);
+        //ช่อง1
+        var examTargetCell = document.createElement("td");
+        var examTargetInput = document.createElement("input");
+        examTargetInput.type = "number";
+        examTargetInput.name = "examTarget" + i;
+        examTargetInput.disabled = true;
+        examTargetCell.appendChild(examTargetInput);
+        row.appendChild(examTargetCell);
+        //ช่อง2
+        var examAchievedCell = document.createElement("td");
+        var examAchievedInput = document.createElement("input");
+        examAchievedInput.type = "number";
+        examAchievedInput.name = "examAchieved" + i;
+        examAchievedInput.disabled = true;
+        examAchievedCell.appendChild(examAchievedInput);
+        row.appendChild(examAchievedCell);
+        //ช่อง3
+        var scoreTargetCell = document.createElement("td");
+        var scoreTargetInput = document.createElement("input");
+        scoreTargetInput.type = "number";
+        scoreTargetInput.name = "scoreTarget" + i;
+        scoreTargetInput.disabled = true;
+        scoreTargetCell.appendChild(scoreTargetInput);
+        row.appendChild(scoreTargetCell);
+        //ช่อง4
+        var scoreAchievedCell = document.createElement("td");
+        var scoreAchievedInput = document.createElement("input");
+        scoreAchievedInput.type = "number";
+        scoreAchievedInput.name = "scoreAchieved" + i;
+        scoreAchievedInput.disabled = true;
+        scoreAchievedCell.appendChild(scoreAchievedInput);
+        row.appendChild(scoreAchievedCell);
+        //ช่อง5
+        var totalCell = document.createElement("td");
+        var totalInput = document.createElement("input");
+        totalInput.type = "text";
+        totalInput.name = "total" + i;
+        totalInput.readOnly = true;//ช่องสำหนับรับข้อมูลกรอกไม่ได้
+        totalCell.appendChild(totalInput);
+        row.appendChild(totalCell);
+        //ช่อง6
+        var totalScoreCell = document.createElement("td");
+        var totalScoreInput = document.createElement("input");
+        totalScoreInput.type = "text";
+        totalScoreInput.name = "totalScore" + i;
+        totalScoreInput.readOnly = true;
+        totalScoreCell.appendChild(totalScoreInput);
+        row.appendChild(totalScoreCell);
+        
+        tableBody.appendChild(row);
+      }
+      
+      document.getElementById("calculateButton").disabled = false;
+      adjustCellSize(numSubjects);
+    }
+    //ฟังก์ชันนี้ใช้สลับสถานะการแก้ไขข้อมูลในตาราง ถ้าสถานะปัจจุบันคือไม่ได้แก้ไข (isEditing = false) จะเปิดให้แก้ไขข้อมูลใน input elements ทั้งหมดในตาราง
+    //และปุ่ม "editButton" จะเปลี่ยนข้อความเป็น "เสร็จสิ้นการแก้ไข" และปุ่ม "calculateButton" จะถูกปิดใช้งาน หากสถานะปัจจุบันคือกำลังแก้ไข (isEditing = true) จะปิดการแก้ไขข้อมูลใน input elements ทั้งหมดในตาราง และปุ่ม "editButton" จะเปลี่ยนข้อความเป็น "แก้ไข" และปุ่ม "calculateButton" จะเปิดใช้งาน
+    function toggleEdit() {
+      var rows = document.getElementById("tableBody").querySelectorAll("tr");
+      
+      if (!isEditing) {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var inputs = row.querySelectorAll("input");
+          
+          for (var j = 0; j < inputs.length; j++) {
+            inputs[j].disabled = false;
+          }
+        }
+        
+        document.getElementById("editButton").textContent = "เสร็จสิ้นการแก้ไข";
+        document.getElementById("calculateButton").disabled = true;
+      } else {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var inputs = row.querySelectorAll("input");
+          
+          for (var j = 0; j < inputs.length; j++) {
+            inputs[j].disabled = true;
+          }
+        }
+        
+        document.getElementById("editButton").textContent = "แก้ไข";
+        document.getElementById("calculateButton").disabled = false;
+      }
+      
+      isEditing = !isEditing;
+    }
+  //คำนวณเกรดที่ได้โดยการนำไปเปรียบเทียบ
+    function showGrade() {
+      var rows = document.getElementById("tableBody").querySelectorAll("tr");
+      //วนลูปผ่านตารางเเละดึงค่าที่ขึ้นต้นด้วยtotalเเละtotalScore
+      for (var i = 0; i < rows.length; i++) {
+  // row ใช้เก็บค่าข้อมูล
+  //ทั้งหมดในตารางเเบบอาเรย์
+      var row = rows[i];
+      var totalInput = row.querySelector("input[name^='total']");
+      var totalScoreInput = row.querySelector("input[name^='totalScore']");
+      var totalValue = parseFloat
+  //parseFloat()ใช้สำหรับ
+  //เเปลงค่าเป็นจำนวนจรืง
+      (totalInput.value) || 0;
+  //หากมีค่าเป็นnonหรือไม่ใช่ตัวเลขจะให้เท่ากับ0
+      var grade;
+      if (totalValue >= 80) {
+        grade = "A";
+      } else if (totalValue >= 70) {
+        grade = "B";
+      } else if (totalValue >= 60) {
+        grade = "C";
+      } else if (totalValue >= 50) {
+        grade = "D";
+      } else {
+        grade = "F";
+      }
+      //กำหนดค่าเพื่อเเสดง
+      totalScoreInput.value = grade;
+      }
+    }
+   //ฟังก์ชันนี้ใช้คำนวณค่ารวมของคะแนนทั้งหมดในตาราง โดยดึงค่าข้อมูลจาก input elements ที่ต้องการคำนวณ และนำค่าที่คำนวณได้มาแสดงใน input elements ที่มี id
+        //เป็น "totalScoreInput"
+  function calculateTotal() {
+    var rows = document.getElementById("tableBody").querySelectorAll("tr");
+    var totalScore = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var examTargetInput = row.querySelector("input[name^='examTarget']");
+      var examAchievedInput = row.querySelector("input[name^='examAchieved']");
+      var scoreTargetInput = row.querySelector("input[name^='scoreTarget']");
+      var scoreAchievedInput = row.querySelector("input[name^='scoreAchieved']");
+      var totalInput = row.querySelector("input[name^='total']");
+      var totalScoreInput = row.querySelector("input[name^='totalScore']");
+      var examTargetValue = parseFloat(examTargetInput.value) || 0;
+      var examAchievedValue = parseFloat(examAchievedInput.value) || 0;
+      var scoreTargetValue = parseFloat(scoreTargetInput.value) || 0;
+      var scoreAchievedValue = parseFloat(scoreAchievedInput.value) || 0;
+      var totalValue = examAchievedValue + scoreAchievedValue;
+      totalInput.value = totalValue//.toFixed(2);
+      totalScore += totalValue;
+    }
+    var totalScoreInput = document.getElementById("totalScoreInput");
+    totalScoreInput.value = totalScore//.toFixed(2);
+    document.getElementById("calculateButton").addEventListener("click", function() {
+    //calculateTotal();
+    //showGrade();
+    });
+    showGrade();
+  }
+    //ฟังก์ชันนี้ใช้ปรับขนาดของเซลล์ในตารางให้เหมาะสมกับจำนวนวิชาที่สร้าง โดยการแบ่งพื้นที่เซลล์ให้เท่าๆ กันในแนวตั้ง และจัดเนื้อหาในเซลล์ให้อยู่ตรงกลาง
+    function adjustCellSize(numSubjects) {
+      var table = document.getElementById("tableBody");
+      var rows = table.querySelectorAll("tr");
+      
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var cells = row.querySelectorAll("td");
+        
+        for (var j = 0; j < cells.length; j++) {
+          var cell = cells[j];
+          cell.style.height = (100 / numSubjects) + "%";
+          cell.style.verticalAlign = "middle";
+        }
+      }
+    }
+</script>
+</head>
+<body>
+  <h1>คะแนนสอบ</h1>
+  <div>
+    <label for="numSubjects">จำนวนวิชา:</label>
+    <input type="number" id="numSubjects" min="1" max="10" value="5">
+    <button onclick="generateTable()">สร้างตาราง</button>
+    <button id="editButton" onclick="toggleEdit()">แก้ไข</button>
+    <button id="calculateButton" onclick="calculateTotal()" disabled>คำนวณคะแนนรวม</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>วิชา</th>
+        <th>คะแนนเก็บที่กำหนด</th>
+        <th>คะแนนเก็บที่ได้</th>
+        <th>คะแนนสอบที่กำหนด</th>
+        <th>คะแนนสอบที่ได้</th>
+        <th>คะแนนรวม</th>
+        <th>เกรด</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="text-align: right;">คะแนนรวมทั้งหมด:</td>
+        <td><input type="text" id="totalScoreInput" disabled></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>
